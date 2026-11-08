@@ -1,0 +1,6 @@
+pywebview>=5.0
+pyinstaller>=6.6
+pyinstaller-hooks-contrib>=2024.0
+# pywebview's EdgeChromium backend on Windows (installed by pywebview, pinned
+# here so a missing one fails the install step instead of the running exe)
+pythonnet>=3.0; sys_platform == "win32"

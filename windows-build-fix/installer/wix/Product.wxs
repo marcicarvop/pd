@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Assunção & Paladini — WiX Toolset v3 .msi definition.
+  Build with:
+    heat.exe dir "..\dist\AssuncaoPaladini" -cg AppFiles -dr INSTALLFOLDER -gg -srd -sfrag -scom -sreg -out AppFiles.wxs
+    candle.exe Product.wxs AppFiles.wxs
+    light.exe -ext WixUIExtension Product.wixobj AppFiles.wixobj -b "..\dist\AssuncaoPaladini" -o "..\dist-installer\AssuncaoPaladini.msi"
+-->
+<Wix xmlns="http://schemas.microsoft.com/wix/2006/wi">
+  <Product Id="*"
+           Name="Assunção &amp; Paladini"
+           Language="1046"
+           Version="$(env.APP_VERSION)"
+           Manufacturer="Assunção &amp; Paladini"
+           UpgradeCode="4f43f592-16cf-417d-b85c-86056d0e3d95">
+    <Package InstallerVersion="500" Compressed="yes" InstallScope="perMachine"
+             Description="Sistema PDV Assunção &amp; Paladini"
+             Manufacturer="Assunção &amp; Paladini" />
+
+    <MajorUpgrade DowngradeErrorMessage="Já existe uma versão mais recente instalada." />
+    <MediaTemplate EmbedCab="yes" />
+
+    <Feature Id="ProductFeature" Title="Assunção &amp; Paladini" Level="1">
+      <ComponentGroupRef Id="AppFiles" />
+      <ComponentRef Id="StartMenuShortcut" />
+      <ComponentRef Id="DesktopShortcut" />
+    </Feature>
+
+    <Directory Id="TARGETDIR" Name="SourceDir">
+      <Directory Id="ProgramFiles64Folder">
+        <Directory Id="INSTALLFOLDER" Name="AssuncaoPaladini" />
+      </Directory>
+      <Directory Id="ProgramMenuFolder">
+        <Directory Id="ApplicationProgramsFolder" Name="Assunção &amp; Paladini" />
+      </Directory>
+      <Directory Id="DesktopFolder" />
+    </Directory>
+
+    <Component Id="StartMenuShortcut" Directory="ApplicationProgramsFolder" Guid="5b980e45-30cd-41a9-b824-e9e1512d9acc">
+      <Shortcut Id="StartMenu" Name="Assunção &amp; Paladini" Target="[INSTALLFOLDER]AssuncaoPaladini.exe" WorkingDirectory="INSTALLFOLDER" />
+      <RemoveFolder Id="RemoveMenuFolder" On="uninstall" />
+      <RegistryValue Root="HKCU" Key="Software\AssuncaoPaladini" Name="menu" Type="integer" Value="1" KeyPath="yes" />
+    </Component>
+
+    <Component Id="DesktopShortcut" Directory="DesktopFolder" Guid="fa6044fd-f189-41a5-9533-eb0b45384826">
+      <Shortcut Id="DesktopLink" Name="Assunção &amp; Paladini" Target="[INSTALLFOLDER]AssuncaoPaladini.exe" WorkingDirectory="INSTALLFOLDER" />
+      <RegistryValue Root="HKCU" Key="Software\AssuncaoPaladini" Name="desktop" Type="integer" Value="1" KeyPath="yes" />
+    </Component>
+
+    <UIRef Id="WixUI_InstallDir" />
+    <Property Id="WIXUI_INSTALLDIR" Value="INSTALLFOLDER" />
+  </Product>
+</Wix>

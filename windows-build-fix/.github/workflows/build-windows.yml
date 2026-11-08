@@ -1,0 +1,182 @@
+name: Build Windows Installer
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version (ex: 1.0.0)'
+        required: true
+        default: '1.0.0'
+
+jobs:
+  build:
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: pwsh
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # -----------------------------------------------------------
+      # 0) Version: strip the leading "v" of tags (WiX/Inno need 1.2.3[.4])
+      # -----------------------------------------------------------
+      - name: Resolve version
+        run: |
+          $raw = if ("${{ github.event.inputs.version }}") { "${{ github.event.inputs.version }}" } else { "${{ github.ref_name }}" }
+          $ver = $raw.TrimStart('v', 'V')
+          if ($ver -notmatch '^\d+\.\d+\.\d+(\.\d+)?$') {
+            throw "Versao invalida '$raw'. Use o formato 1.2.3 ou 1.2.3.4 (tag v1.2.3)."
+          }
+          "APP_VERSION=$ver" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          Write-Host "APP_VERSION=$ver"
+
+      # -----------------------------------------------------------
+      # 1) Frontend build
+      # -----------------------------------------------------------
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Build frontend (React)
+        working-directory: frontend
+        run: |
+          "REACT_APP_BACKEND_URL=" | Out-File -Encoding ascii .env.production.local
+          npm install --legacy-peer-deps
+          if ($LASTEXITCODE -ne 0) { throw "npm install falhou" }
+          npm install ajv@^8.0.0 --save-dev --legacy-peer-deps
+          if ($LASTEXITCODE -ne 0) { throw "npm install ajv falhou" }
+          npm run build
+          if ($LASTEXITCODE -ne 0) { throw "npm run build falhou" }
+          if (-not (Test-Path build\index.html)) { throw "frontend\build\index.html nao foi gerado" }
+
+      # -----------------------------------------------------------
+      # 2) Python / backend / launcher
+      # -----------------------------------------------------------
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      # pwsh does NOT stop on a failing native command: every pip call is
+      # checked explicitly, otherwise a failed install leaves the step green.
+      - name: Install python deps
+        run: |
+          python -m pip install --upgrade pip
+          if ($LASTEXITCODE -ne 0) { throw "pip upgrade falhou" }
+          python -m pip install -r backend/requirements-build.txt
+          if ($LASTEXITCODE -ne 0) { throw "pip install backend/requirements-build.txt falhou" }
+          python -m pip install -r desktop/requirements.txt
+          if ($LASTEXITCODE -ne 0) { throw "pip install desktop/requirements.txt falhou" }
+
+      - name: Preflight (imports)
+        run: |
+          python -c "import fastapi, starlette, uvicorn, motor, pymongo, pydantic, pydantic_core, bcrypt, jwt, dotenv, email_validator, multipart, tzdata, webview, clr_loader, PyInstaller; print('fastapi', fastapi.__version__, '| pydantic', pydantic.__version__, '| motor', motor.version)"
+          if ($LASTEXITCODE -ne 0) { throw "Dependencias ausentes no Python do build (veja o erro acima)" }
+          $env:MONGO_URL = "mongodb://127.0.0.1:27070"; $env:DB_NAME = "preflight"; $env:JWT_SECRET = "x"; $env:APP_TZ = "America/Sao_Paulo"
+          python -c "import sys; sys.path.insert(0, '.'); from backend.server import app; print('backend.server OK:', app.title)"
+          if ($LASTEXITCODE -ne 0) { throw "backend/server.py nao importa com as deps de build" }
+
+      - name: PyInstaller build
+        working-directory: desktop
+        run: |
+          python -m PyInstaller server.spec --noconfirm --distpath ..\dist --workpath ..\build
+          if ($LASTEXITCODE -ne 0) { throw "PyInstaller falhou" }
+          if (-not (Test-Path ..\dist\AssuncaoPaladini\AssuncaoPaladini.exe)) {
+            throw "dist\AssuncaoPaladini\AssuncaoPaladini.exe nao foi gerado"
+          }
+
+      # -----------------------------------------------------------
+      # 3) Bundle MongoDB portable binary
+      # -----------------------------------------------------------
+      - name: Download embedded MongoDB
+        run: |
+          $ver = "7.0.14"
+          $url = "https://fastdl.mongodb.org/windows/mongodb-windows-x86_64-$ver.zip"
+          curl.exe -fLo mongo.zip $url
+          if ($LASTEXITCODE -ne 0) { throw "download do MongoDB falhou" }
+          Expand-Archive mongo.zip -DestinationPath mongo-extract
+          $src = (Get-ChildItem mongo-extract -Directory | Select-Object -First 1).FullName
+          New-Item -Force -ItemType Directory dist\AssuncaoPaladini\mongodb\bin | Out-Null
+          Copy-Item "$src\bin\mongod.exe" dist\AssuncaoPaladini\mongodb\bin\
+
+      # -----------------------------------------------------------
+      # 4) Copy React build next to the exe
+      # -----------------------------------------------------------
+      - name: Bundle React build
+        run: |
+          New-Item -Force -ItemType Directory dist\AssuncaoPaladini\frontend | Out-Null
+          Copy-Item frontend\build\* dist\AssuncaoPaladini\frontend\ -Recurse -Force
+
+      # -----------------------------------------------------------
+      # 4b) Smoke test: frozen exe boots mongod + backend (no window)
+      # -----------------------------------------------------------
+      - name: Smoke test frozen app
+        run: |
+          $env:AP_HEADLESS = "1"
+          $p = Start-Process -FilePath dist\AssuncaoPaladini\AssuncaoPaladini.exe -PassThru -Wait
+          $log = Join-Path $env:APPDATA "AssuncaoPaladini\logs\launcher.log"
+          if (Test-Path $log) { Get-Content $log }
+          if ($p.ExitCode -ne 0) { throw "O exe congelado falhou ao iniciar (exit $($p.ExitCode))" }
+          Get-Process mongod -ErrorAction SilentlyContinue | Stop-Process -Force
+
+      # -----------------------------------------------------------
+      # 5) Inno Setup (.exe)
+      # -----------------------------------------------------------
+      - name: Install Inno Setup
+        run: |
+          if (-not (Test-Path "${env:ProgramFiles(x86)}\Inno Setup 6\iscc.exe")) {
+            choco install innosetup -y --no-progress
+            if ($LASTEXITCODE -ne 0) { throw "choco innosetup falhou" }
+          }
+
+      - name: Build Inno Setup installer
+        working-directory: installer
+        run: |
+          New-Item -Force -ItemType Directory ..\dist-installer | Out-Null
+          & "${env:ProgramFiles(x86)}\Inno Setup 6\iscc.exe" inno-setup.iss
+          if ($LASTEXITCODE -ne 0) { throw "Inno Setup falhou" }
+          Get-ChildItem ..\dist-installer
+
+      # -----------------------------------------------------------
+      # 6) WiX (.msi)
+      # -----------------------------------------------------------
+      - name: Install WiX
+        run: |
+          choco install wixtoolset -y --no-progress
+          if ($LASTEXITCODE -ne 0) { throw "choco wixtoolset falhou" }
+
+      - name: Build MSI
+        working-directory: installer/wix
+        run: |
+          $wix = @(
+            "${env:ProgramFiles(x86)}\WiX Toolset v3.14\bin",
+            "${env:ProgramFiles(x86)}\WiX Toolset v3.11\bin"
+          ) | Where-Object { Test-Path $_ } | Select-Object -First 1
+          if (-not $wix) { throw "WiX Toolset v3 nao encontrado" }
+          & "$wix\heat.exe" dir "..\..\dist\AssuncaoPaladini" -cg AppFiles -dr INSTALLFOLDER -gg -srd -sfrag -scom -sreg -out AppFiles.wxs
+          if ($LASTEXITCODE -ne 0) { throw "heat falhou" }
+          & "$wix\candle.exe" -arch x64 Product.wxs AppFiles.wxs
+          if ($LASTEXITCODE -ne 0) { throw "candle falhou" }
+          & "$wix\light.exe" -ext WixUIExtension -cultures:pt-BR -sice:ICE38 -sice:ICE43 -sice:ICE57 -sice:ICE64 -sice:ICE91 Product.wixobj AppFiles.wixobj -b "..\..\dist\AssuncaoPaladini" -o "..\..\dist-installer\AssuncaoPaladini-$env:APP_VERSION.msi"
+          if ($LASTEXITCODE -ne 0) { throw "light falhou" }
+          Get-ChildItem ..\..\dist-installer
+
+      # -----------------------------------------------------------
+      # 7) Upload artifacts / create release
+      # -----------------------------------------------------------
+      - uses: actions/upload-artifact@v4
+        with:
+          name: AssuncaoPaladini-Windows-${{ env.APP_VERSION }}
+          path: dist-installer/*
+          if-no-files-found: error
+
+      - name: Create GitHub Release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            dist-installer/*.exe
+            dist-installer/*.msi
