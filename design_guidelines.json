@@ -1,0 +1,106 @@
+{
+  "brand_identity": {
+    "name": "Panificadora & Lanchonete Tradição - Sistema POS & Gestão",
+    "tagline": "Sistema integrado de balcão, comandas e retaguarda para padarias e lanchonetes",
+    "theme_archetype": "Organic & Earthy / Warm Bakery (Âmbar Mel + Creme + Marrom Torrado + Verde Oliva)",
+    "emotional_tone": "Achegado, ultra-eficiente, artesanal e altamente profissional. Feito para alta luminosidade de balcão e velocidade de atendimento com um toque acolhedor de padaria artesanal brasileira."
+  },
+  "typography": {
+    "font_family_display": "'Outfit', 'Plus Jakarta Sans', sans-serif",
+    "font_family_body": "'Plus Jakarta Sans', 'Manrope', sans-serif",
+    "font_family_mono": "'JetBrains Mono', 'Courier New', monospace",
+    "font_weights": {
+      "light": 300,
+      "regular": 400,
+      "medium": 500,
+      "semibold": 600,
+      "bold": 700,
+      "extra_bold": 800
+    },
+    "hierarchy": {
+      "h1_hero": "text-3xl sm:text-4xl lg:text-5xl font-extrabold tracking-tight",
+      "h2_section": "text-xl sm:text-2xl lg:text-3xl font-bold tracking-tight",
+      "h3_card": "text-lg sm:text-xl font-semibold",
+      "body_text": "text-sm sm:text-base leading-relaxed",
+      "pos_counter_number": "text-2xl sm:text-3xl font-mono font-bold tracking-tight",
+      "small_label": "text-xs font-medium uppercase tracking-wider"
+    },
+    "forbidden_fonts": ["Inter", "Roboto", "Space Grotesk", "Open Sans"]
+  },
+  "colors": {
+    "mode": "light_first_with_dark_support",
+    "palette": {
+      "primary": "#D97706",
+      "primary_hover": "#B45309",
+      "primary_active": "#92400E",
+      "primary_foreground": "#FFFFFF",
+      "secondary": "#FEF3C7",
+      "secondary_foreground": "#78350F",
+      "background_light": "#FAF7F2",
+      "card_light": "#FFFFFF",
+      "border_light": "#E5E0D8",
+      "surface_dark": "#1F2937",
+      "text_main": "#271E17",
+      "text_muted": "#6B7280",
+      "accent_terracotta": "#C2410C",
+      "accent_olive": "#65A30D",
+      "accent_gold": "#F59E0B",
+      "status_success": "#16A34A",
+      "status_warning": "#EAB308",
+      "status_danger": "#DC2626",
+      "fiado_badge": "#9A3412"
+    },
+    "forbidden_colors": ["#7351B7", "#1B93A4"],
+    "contrast_rules": "Texto principal em fundo claro deve manter contraste superior a 7:1. Botões de ação rápida no caixa usam fundo primário quente (#D97706) com texto branco em negrito. Elementos interativos ativados ou com foco precisam ter anel luminoso contrastante (#F59E0B)."
+  },
+  "layout_and_structure": {
+    "navigation": "Barra lateral esquerda fixa (Sidebar POS) com ícone + rótulo para troca rápida de módulo (Caixa, Comandas, Cardápio, Fiado, Encomendas, Estoque, Dashboard Gerencial). Topbar com indicação de operador/gerente ativo, hora ao vivo, alerta de estoque e botão de bloqueio de sessão (PIN).",
+    "pos_counter_layout": "Layout de duas colunas principais no Caixa/Comanda: Coluna da esquerda (65%) com grade de produtos em botões táteis grandes categorizados; Coluna da direita (35%) com resumo do pedido/comanda em tempo real, teclado numérico/desconto e botões de pagamento de um clique (Dinheiro, Cartão, PIX, Fiado).",
+    "spacing_scale": "Uso generoso de p-4, p-6 e p-8 com bordas refinadas (border border-[#E5E0D8]). Containers possuem padding interno reforçado para evitar colisão de texto e garantir visualização rápida sob luz forte de balcão.",
+    "border_radius": "rounded-lg para cards e entradas, rounded-full para botões de filtro e pills de status."
+  },
+  "components_guidelines": {
+    "auth_screen": "Opção de alternância rápida entre usuário/senha convencional ou PIN numérico de 4 dígitos para operadores de balcão. Teclado numérico grande na tela para telas de toque.",
+    "menu_management": "Suporte completo a variações de tamanho (P, M, G), adicionais/ingredientes e montador visual de pizza meio-a-meio (ex: 1/2 Calabresa + 1/2 Quatro Queijos) com cálculo automático do valor pela média ou maior valor.",
+    "orders_and_comandas": "Grid visual de mesas e comandas por número/atendimento com indicadores de status coloridos (Livre, Aberta, Em Produção, Pronta, Aguardando Pagamento).",
+    "checkout_and_receipt": "Fechamento de venda rápida com troco automático calculado, seleção de múltiplas formas de pagamento e modal de pré-visualização de cupom não fiscal/comanda para impressão térmica (80mm e 58mm).",
+    "fiado_ledger": "Gestão de clientes com busca instantânea por nome/CPF/telefone, limite de crédito disponível, histórico de compras a prazo e registro simplificado de abatimento/pagamento de dívida.",
+    "custom_orders_encomendas": "Calendário e lista filtrável por data de entrega com alertas visuais para entregas do dia e status de sinal/pagamento pendente.",
+    "inventory_management": "Controle de insumos (farinha, queijo, presunto, café) e produtos finalizados, com alertas proeminentes para itens abaixo do estoque mínimo.",
+    "manager_dashboard": "KPIs em tempo real (Faturamento do dia, Vendas por categoria, Média por comanda, Total fiado pendente, Alertas de estoque) usando Recharts com paleta âmbar/terracota/verde-oliva."
+  },
+  "testing_requirements": {
+    "mandatory_attribute": "data-testid",
+    "convention": "kebab-case descritivo e decoupled das classes CSS",
+    "examples": [
+      "data-testid='login-pin-input'",
+      "data-testid='login-submit-button'",
+      "data-testid='pos-product-card-1'",
+      "data-testid='pos-add-to-cart-button'",
+      "data-testid='pos-payment-method-pix'",
+      "data-testid='pos-finish-sale-button'",
+      "data-testid='comanda-table-item-5'",
+      "data-testid='pizza-builder-half-select-1'",
+      "data-testid='fiado-customer-debt-balance'",
+      "data-testid='receipt-modal-print-button'"
+    ]
+  },
+  "image_urls": {
+    "croissants": "https://images.unsplash.com/photo-1623334044303-241021148842?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NDQ2Mzl8MHwxfHNlYXJjaHwxfHxhcnRpc2FuJTIwYmFrZXJ5JTIwZnJlc2glMjBicmVhZCUyMHBhc3RyaWVzJTIwY3JvaXNzYW50JTIwY29mZmVlfGVufDB8fHx8MTc5MzczNzI0MXww&ixlib=rb-4.1.0&q=85",
+    "coffee_and_breads": "https://images.unsplash.com/photo-1515823662972-da6a2e4d3002?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NDQ2Mzl8MHwxfHNlYXJjaHwzfHxhcnRpc2FuJTIwYmFrZXJ5JTIwZnJlc2glMjBicmVhZCUyMHBhc3RyaWVzJTIwY3JvaXNzYW50JTIwY29mZmVlfGVufDB8fHx8MTc5MzczNzI0MXww&ixlib=rb-4.1.0&q=85",
+    "baked_treats_tray": "https://images.unsplash.com/photo-1483695028939-5bb13f8648b0?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NDQ2Mzl8MHwxfHNlYXJjaHwyfHxhcnRpc2FuJTIwYmFrZXJ5JTIwZnJlc2glMjBicmVhZCUyMHBhc3RyaWVzJTIwY3JvaXNzYW50JTIwY29mZmVlfGVufDB8fHx8MTc5MzczNzI0MXww&ixlib=rb-4.1.0&q=85",
+    "croissant_display": "https://images.unsplash.com/photo-1530610476181-d83430b64dcd?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NDQ2Mzl8MHwxfHNlYXJjaHw0fHxhcnRpc2FuJTIwYmFrZXJ5JTIwZnJlc2glMjBicmVhZCUyMHBhc3RyaWVzJTIwY3JvaXNzYW50JTIwY29mZmVlfGVufDB8fHx8MTc5MzczNzI0MXww&ixlib=rb-4.1.0&q=85",
+    "brazilian_pastries_coffee": "https://images.unsplash.com/photo-1694097029110-3b4447dacb1f?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NTY2Njl8MHwxfHNlYXJjaHw0fHxnb3VybWV0JTIwcGl6emElMjBzbGljZSUyMGNvZmZlZSUyMEJyYXppbGlhbiUyMHNuYWNrJTIwcGFzdHJ5fGVufDB8fHx8MTc5MzczNzI0NHww&ixlib=rb-4.1.0&q=85",
+    "pizza_table": "https://images.unsplash.com/photo-1646257102268-97e0afa45663?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NTY2Njl8MHwxfHNlYXJjaHwyfHxnb3VybWV0JTIwcGl6emElMjBzbGljZSUyMGNvZmZlZSUyMEJyYXppbGlhbiUyMHNuYWNrJTIwcGFzdHJ5fGVufDB8fHx8MTc5MzczNzI0NHww&ixlib=rb-4.1.0&q=85",
+    "pizza_and_espresso": "https://images.unsplash.com/photo-1693138172281-eede2acd7616?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NTY2Njl8MHwxfHNlYXJjaHwxfHxnb3VybWV0JTIwcGl6emElMjBzbGljZSUyMGNvZmZlZSUyMEJyYXppbGlhbiUyMHNuYWNrJTIwcGFzdHJ5fGVufDB8fHx8MTc5MzczNzI0NHww&ixlib=rb-4.1.0&q=85"
+  },
+  "instructions_to_main_agent": [
+    "Construir toda a interface com suporte nativo a 100% dos requisitos do problema em Português do Brasil.",
+    "Garantir perfis Operador de Caixa e Gerente com permissões estritas (ex: Gerente edita estoque/cardápio e vê KPIs; Caixa abre/fecha vendas e gerencia comandas).",
+    "Oferecer login por senha ou por PIN de 4 dígitos em teclado touch grande para agilidade.",
+    "Implementar o montador de pizza meio-a-meio e opções de tamanho/ingredientes adicionais no cardápio.",
+    "Incluir visualização e botão de pré-impressão de comanda/cupom fiscal formatado para cupom de balcão.",
+    "Manter dados de exemplo ricos em produtos brasileiros de padaria (Pão Francês, Coxinha, Pão de Queijo, Pizza Calabresa, Pingado, Bolo de Fubá, etc.).",
+    "Adicionar data-testid em TODOS os botões, campos de entrada, cartões de produto, modais e elementos chave."
+  ]
+}

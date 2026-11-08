@@ -1,0 +1,40 @@
+{
+  "summary": "Retest of post-iteration-5 fixes. All 7 fixes verified. New backend suite test_iteration6_fixes.py 12/12 PASS; full regression 97/97 PASS (incl. iteration5 tests 11/15/16 that previously failed). Frontend smoke PASS: Cardápio editor tabs Básico/Ficha/Preço (non-pizza + pizza Base + per-flavor tabs, cost calc correct), mode switch revenda->none clears stock_item_id/tracks_stock and preserves pronto_item_id, Produção dialog for pronto non-pizza and pizza (flavor required, preview correct: 0.6kg farinha + 0.4kg queijo = R$19,00), Descarte via UI (2->1), Caixa (caixa1) pizza meio-a-meio sale + checkout + receipt, pronto flavor decremented 1->0.5 and flavor without pronto skipped. No page errors.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "DELETE /api/products/{id} & DELETE /api/estoque/{id}", "issue": "No cascade on production_batches: deleting a pronto product/pronto estoque item leaves orphan batches with quantity_remaining>0 that still appear in Produção > Lotes with an active 'Descartar' button (descarte then $inc's a non-existent estoque item). Observed TEST_Pizza_dc6c1 batches left after pytest teardown."},
+      {"endpoint": "GET /api/estoque/movimentos", "issue": "When both item_id and item_type are passed, item_type overwrites the item_id filter (q['item_id'] reassigned). Should intersect."},
+      {"endpoint": "_consume_pronto", "issue": "Decrement is capped by batch sum, so if pronto item quantity was raised via manual 'entrada/ajuste' movimento (no batch), sales never decrement that extra stock. Consider blocking manual movimentos on type=pronto or creating a batch for them."},
+      {"endpoint": "PATCH /api/estoque/{id}", "issue": "Still requires 'name' (EstoqueItemIn.name required) -> partial PATCH without name returns 422. Works for current UI which sends full form."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Cardápio list", "issues": ["Pizza card cost line 'custo R$ 5,50 · 100%' wraps onto 2 lines and looks cramped next to price"]},
+      {"screen": "Produção dialog", "issues": ["Validade uses native <input type=date> (browser picker) instead of shadcn Calendar"]},
+      {"screen": "Receipt", "issues": ["Header shows 'PADARIA TRADIÇÃO' while app brand/footer is 'Assunção & Paladini' - inconsistent store name"]},
+      {"screen": "Cardápio editor (revenda mode)", "issues": ["'Item de revenda vinculado' select and 'Unidades por venda' input lack data-testid"]}
+    ]
+  },
+  "test_report_links": ["/app/backend/tests/test_iteration6_fixes.py", "/app/backend/tests/setup_it6_ui.py", "/app/test_reports/pytest/pytest_results_it6.xml"],
+  "action_items": [
+    "Cascade/guard production_batches when a pronto product or pronto estoque item is deleted (or hide/disable descartar for orphan batches)",
+    "GET /estoque/movimentos: combine item_id and item_type filters instead of overwriting",
+    "Decide policy for manual movimentos on pronto items (block or create batch) so pronto qty stays in sync with batches",
+    "Minor: add data-testid to revenda stock select & stock_usage input; fix pizza cost line wrap; unify receipt store name"
+  ],
+  "critical_code_review_comments": [
+    "PATCH /products uses full model_dump: any client that omits pronto_item_id will null it and orphan the pronto stock (current Cardápio spreads product so it's preserved - verified)",
+    "server.py is 1590+ lines - split into routers (estoque, producao, orders)",
+    "create_batch consumes insumos with non-atomic read/validate/then $inc - concurrent productions can drive insumo negative"
+  ],
+  "updated_files": ["/app/backend/tests/test_iteration6_fixes.py", "/app/backend/tests/setup_it6_ui.py"],
+  "success_rate": {"backend": "100% (97/97)", "frontend": "100% of smoke flows"},
+  "seed_data_creation": "Created TEST_UI6_* insumos/products and TEST_* pytest data; all deleted by id. Closed TEST_it6 orders and production_batches remain (no delete API). Pre-existing leftover from earlier iteration NOT created by me: product TEST_UI_PaoQ (cfb998a6-...) with pronto stock 10 un.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Run pytest with -n0 for module-state suites (pytest.ini forces -n 2 loadscope, works too). test_iteration6_fixes uses pymongo via backend/.env to simulate legacy production_mode None/''/missing. UI: login admin/admin123 then page.goto(BASE+'/route'); Produção testids producir-lote-btn, producao-product/flavor/qty/confirm, tab-batches, batch-descartar-{id}, descartar-qty/confirm. Caixa: caixa-new-table-input, product-card-{id}, pizza-flavor-{i}, product-dialog-confirm, caixa-checkout-button, pay-method-dinheiro, quick-amount-exact, checkout-confirm-button."
+}

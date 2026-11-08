@@ -1,0 +1,66 @@
+{
+  "summary": "First full test run of Padaria POS. Backend: 25 pytest cases (auth password+PIN, role 403s, product CRUD w/ variations, comanda add/remove/checkout w/ change, pizza half-half, required variations, fiado checkout+limit+payment+history, encomendas, estoque movements+alerts, dashboard, users CRUD) -> 21 pass, 4 fail (edge-case bugs). Frontend (Playwright, desktop 1920): PIN + password login, operador route guards (redirect to /caixa, gerente nav hidden), Caixa POS full flow (simple product, Pizza Grande half-half, X-Burger extras+qty, multi-cash payment w/ troco R$7,50, receipt), fiado sale via UI (button disabled w/o customer, debt updated, Receber reduces balance, history shows venda+pagamento), Encomendas create + status change, Estoque create/saida/entrada + low-stock banner, Cardapio create w/ variation/edit/delete, Usuarios create/edit/delete, Dashboard KPIs, Comandas tabs + receipt. Core flows all work. Main issues: mobile layout completely broken, encomendas cannot handle products with required variations, pizza extras not priced by backend, dashboard 'dinheiro' includes troco, regex crash in customer search, negative payment accepted.",
+  "backend_issues": {
+    "critical": [
+      {"endpoint": "POST /api/orders/{id}/items (and /api/encomendas)", "issue": "_build_item: when product.is_pizza=True, product.variations (e.g. Borda/Extras) are ignored -> price_delta not added and text not stored. Frontend ProductDialog shows base+extras (e.g. R$58) but server charges R$50. Cardapio editor allows adding variations to pizzas. Verified with probe_pizza_extras.py. Fix: also call _format_variations for pizzas.", "priority": "HIGH"},
+      {"endpoint": "GET /api/dashboard", "issue": "por_pagamento sums payment.amount including troco: R$4 sale paid with R$10 cash -> dinheiro +10 while faturamento +4. Use amount - change for dinheiro.", "priority": "HIGH"}
+    ],
+    "minor": [
+      {"endpoint": "GET /api/customers?q=(", "issue": "500 Internal Server Error - regex not escaped. Use re.escape(q)."},
+      {"endpoint": "POST /api/customers/{id}/pagamento", "issue": "Negative amount accepted (amount=-50 increases debt to 50). Validate amount > 0 (Pydantic Field(gt=0)). Same for Payment.amount, OrderItemIn.quantity, EstoqueMovimentoIn.quantity, discount."},
+      {"endpoint": "POST/PATCH /api/users", "issue": "Duplicate PIN allowed (created user with PIN 1234 same as admin) -> PIN login returns first match = ambiguous/wrong user. Also PIN not validated as 4 digits."},
+      {"endpoint": "POST /api/orders/{id}/checkout", "issue": "Fiado debt updates are applied in loop before other validations of later fiado payments -> partial debt write if second fiado payment fails (non-atomic). Also fiado overpayment (amount > total) is booked fully as debt."},
+      {"endpoint": "GET /api/dashboard", "issue": "'today' computed in UTC: sales after 21:00 Brasília count as next day; encomendas_hoje uses UTC date too."},
+      {"endpoint": "server.py", "issue": "JWT_SECRET has hardcoded fallback default; no endpoint to delete/void test or erroneous closed orders."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "Layout (all pages) - mobile", "issue": "Sidebar is fixed w-64 with no responsive collapse/drawer. At 390px content is clipped, document scrollWidth=562 (horizontal overflow); Caixa product grid not visible at all on mobile.", "selector": "aside.w-64", "priority": "HIGH"},
+      {"component": "Encomendas dialog", "issue": "No variation selector for items. Products with required variations (Bolo de Fubá - Tamanho, Pastel - Recheio, Suco Natural) cannot be added: save shows toast 'Selecione Tamanho'. Ordering a whole cake (core bakery pre-order) impossible.", "selector": "[data-testid=encomenda-item-0]", "priority": "HIGH"},
+      {"component": "Layout topbar/sidebar stock alert badge", "issue": "Alert count fetched only once on login; after estoque saída making item low, banner says 2 items but topbar/sidebar badge stays 1 until reload.", "selector": "[data-testid=topbar-stock-alert]", "priority": "MEDIUM"},
+      {"component": "Caixa order list & ReceiptDialog", "issue": "Pizza item shows 'Sabores: Calabresa / Mussarela' twice (variations_text + pizza_halves both rendered).", "selector": "[data-testid^=order-item-], [data-testid=receipt-dialog]", "priority": "LOW"},
+      {"component": "Login.jsx line 22", "issue": "navigate() called during render -> React console error 'Cannot update a component while rendering a different component'. Use <Navigate> or useEffect.", "selector": "", "priority": "LOW"},
+      {"component": "Fiado page (operador)", "issue": "Delete customer trash icon shown to operador but backend DELETE /customers is gerente-only (403).", "selector": "Fiado row trash button", "priority": "LOW"},
+      {"component": "Encomendas default date", "issue": "Default delivery_date uses new Date().toISOString() (UTC) -> after 21:00 local defaults to tomorrow.", "selector": "[data-testid=encomenda-date]", "priority": "LOW"}
+    ],
+    "integration_issues": [
+      {"flow": "Pizza with extras", "issue": "ProductDialog total includes variation deltas for pizza but backend ignores them -> displayed price != charged price.", "affected_selectors": ["[data-testid=product-dialog-confirm]", "[data-testid=order-total]"]}
+    ],
+    "design_issues": [
+      {"screen": "Global", "issues": ["Sonner toasts top-right overlap the topbar (stock alert badge / user name) and 'Pedido atual' header in Caixa; consider bottom-right", "Cardápio nav uses UserCog icon (people icon) - unrelated to menu", "Login page shows test credentials hint 'admin/admin123 · caixa1/caixa123' - remove for production", "Native <input type=date>/<time> used in Encomendas instead of shadcn Calendar/Popover", "Pizza dialog text says 'Valor cobrado é do sabor mais caro' but flavors have no individual prices (pizza_pricing unused)", "Encomenda card shows leading ' · 08:00' when phone empty", "Many products without image fall back to letter tiles (ok) but Coxinha seed image looks unrelated (green dish)"]}
+    ]
+  },
+  "test_report_links": ["/app/backend/tests/test_pos_api.py", "/app/backend/tests/probe_pizza_extras.py", "/app/backend/tests/cleanup_test_data.py", "/app/test_reports/pytest/pytest_results.xml"],
+  "action_items": [
+    "Make layout responsive: collapsible sidebar/drawer (hamburger) on <md, stack Caixa product grid and order panel on mobile",
+    "Add variation selectors (reuse ProductDialog) in Encomendas item rows so required variations can be chosen",
+    "Backend _build_item: apply product.variations price deltas/text for pizza products too",
+    "Dashboard por_pagamento: subtract change from dinheiro amounts",
+    "Escape regex in GET /customers search (re.escape)",
+    "Validate positive amounts/quantities with Pydantic (Field(gt=0)) for fiado payments, checkout payments, items, estoque movements, discount >= 0",
+    "Reject duplicate PINs and enforce 4-digit PIN on create/update user",
+    "Refresh stock alert count in Layout after estoque changes (context/event or refetch on route change)",
+    "Remove duplicate 'Sabores' line in Caixa item list and ReceiptDialog",
+    "Fix Login navigate-during-render warning",
+    "Hide customer delete button for operador"
+  ],
+  "critical_code_review_comments": [
+    "server.py is 1216 lines - split into routers (auth, users, products, orders, fiado, estoque, encomendas, dashboard)",
+    "Checkout is non-atomic: fiado debt writes happen before all payments validated; stock decremented after order closed without checks",
+    "Dashboard loads ALL closed orders and filters in Python (to_list(2000)) - will truncate/slow; use date range query on closed_at",
+    "PIN login iterates bcrypt over all users (O(n) bcrypt) - fine for small staff but combine with unique-PIN constraint",
+    "PATCH /encomendas accepts raw dict body without Pydantic model; status values not validated; PATCH /orders status not validated",
+    "DELETE /products hard-deletes - historic orders keep product_name so ok, but consider soft delete (active=false) which already exists",
+    "JWT_SECRET fallback default should be removed (fail fast)",
+    "Many interactive elements lack data-testid: encomenda status select & delete, user edit/delete buttons, variation editor inputs in Cardapio, payment row remove button, estoque quantity/min inputs, comanda status buttons"
+  ],
+  "updated_files": ["/app/backend/tests/test_pos_api.py", "/app/backend/tests/probe_pizza_extras.py", "/app/backend/tests/cleanup_test_data.py"],
+  "success_rate": {"backend": "84% (21/25)", "frontend": "~85% desktop flows pass; mobile fails"},
+  "test_credentials": "admin/admin123 PIN 1234 (gerente); caixa1/caixa123 PIN 5678 (operador) - all verified working",
+  "seed_data_creation": "All TEST_ customers, products, estoque items, encomendas, users created were deleted by id. Open test comandas were cancelled (incl. #111 'Mesa 1'). NOTE: ~8 closed TEST_ orders (#101-#110, table_label TEST_*) remain because there is no delete endpoint -> today's dashboard faturamento (~R$260) includes test sales; fiado_mov/estoque_mov history entries for deleted TEST_ records remain. Seed data not modified.",
+  "retest_needed": true,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Run: cd /app/backend && REACT_APP_BACKEND_URL=... python -m pytest tests/test_pos_api.py (pytest.ini uses xdist). 4 expected failures until fixed: regex search, negative payment, dashboard cash incl. troco, duplicate PIN. probe_pizza_extras.py should print total 58 after fix. Retest mobile (390px) layout and Encomendas with Bolo de Fubá 'Bolo inteiro'. Toasts use [data-sonner-toast]. Selects are shadcn (click trigger then get_by_role('option')).",
+  "rca of the issue": "Pizza extras: _build_item has if/else on is_pizza, variations only handled in else branch. Dashboard cash: aggregates p['amount'] without subtracting p['change']. Mobile: Layout aside has fixed w-64 + shrink-0 with no breakpoint classes. Encomendas: item row only renders product Select, qty and pizza flavors; variations_data stays {} so backend _format_variations raises 400 for required ones. Regex: user input passed directly to $regex."
+}

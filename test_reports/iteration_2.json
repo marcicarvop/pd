@@ -1,0 +1,49 @@
+{
+  "summary": "Iteration 2 retest of iteration_1 fixes. Backend: 37/37 pytest pass (test_pos_api.py regression + new test_iteration2_fixes.py). Pizza extras/borda now priced server-side (probe = 58), no 'Sabores' in variations_text, regex search safe, 422 for zero/negative amounts/qty/discount, PIN 4-digit + unique on POST/PATCH, non-cash overpay rejected, fiado validated before any write (no partial debt, 404 for unknown customer writes nothing), dashboard dinheiro net of troco (mixed pix+dinheiro too), trend last day == local today (America/Sao_Paulo). Frontend: login has no credential hint and no 'Cannot update a component while rendering' warning; PIN login ok; Caixa pizza shows flavors once in item list and receipt; desktop totals match dialog; stock alert badge updates immediately after movement (1->2 without reload); Encomendas with Bolo de Fubá + Pizza Média opens ProductDialog, options summary + edit button work, saved total correct, default date local today, no leading ' · '; Fiado delete button hidden for operador; toasts bottom-right; mobile 390px: sidebar hidden, hamburger opens Sheet with nav and closes on navigation, no horizontal overflow on login/caixa/fiado, Caixa grid and order panel stacked, checkout completes. NEW CRITICAL BUG: any 422 response crashes the React app (white screen 'Objects are not valid as a React child') because toast.error(e.response.data.detail) receives Pydantic's array detail.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "DELETE /api/orders/{id}", "issue": "Can cancel an already 'fechada' order; doesn't revert fiado debt or stock decrement, silently removes sale from dashboard revenue"},
+      {"endpoint": "PATCH /api/orders/{id}", "issue": "status is free string; client can set 'fechada' directly bypassing checkout/payments"},
+      {"endpoint": "POST /api/encomendas", "issue": "deposit has no ge=0 / <= total validation; customer_name can be empty string; PATCH /encomendas accepts raw dict (no Pydantic, deposit/status unvalidated)"},
+      {"endpoint": "POST /api/estoque/movimento", "issue": "saida can drive stock negative without warning"},
+      {"endpoint": "POST /api/orders/{id}/items", "issue": "pizza_halves not validated against product.pizza_flavors"}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "Error toasts (Estoque, Fiado, Caixa, Encomendas, Cardapio, Usuarios, Login - 14 places)", "issue": "On 422 FastAPI returns detail as array of {type,loc,msg,input,ctx,url}; toast.error(e.response?.data?.detail || 'Erro') renders an object -> React runtime crash (full app error screen). Reproduced: Estoque > Entrada with quantity -2 -> app crash. Same for Fiado 'Receber' with empty/0 amount (parseFloat||0 -> 422). Fix: helper errMsg(e) = typeof detail==='string' ? detail : Array.isArray(detail) ? detail.map(d=>d.msg).join('; ') : fallback; also add client-side >0 validation/min attr in movimento-qty and payment-amount-input.", "selector": "[data-testid=movimento-save], [data-testid=payment-amount-input]", "priority": "CRITICAL"},
+      {"component": "CheckoutDialog (mobile 390px)", "issue": "Dialog height ~1005px > 844 viewport with overflow visible; title is off-screen (y=-55) and confirm button bottom is cut (y 830-866). Works only by tapping partially-visible button. Add max-h-[90vh] overflow-y-auto (or full-screen sheet on mobile).", "selector": "[data-testid=checkout-dialog]", "priority": "MEDIUM"},
+      {"component": "ProductDialog reopen from Encomendas", "issue": "[data-testid=encomenda-item-edit-options-{i}] reopens dialog empty (no prefill of previous variations/flavors/qty/notes); confirm disabled until re-selected and quantity resets to 1. Pass initial values as props.", "selector": "[data-testid=product-dialog]", "priority": "LOW"}
+    ],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Caixa mobile", "issues": ["Bottom-right toasts overlap the primary 'Fechar venda' CTA on mobile for ~4s"]},
+      {"screen": "Product images (seed)", "issues": ["Coxinha image shows a green soup with breadstick; Pão de Queijo image shows croissants (same photo used for Login background) - not relevant to products"]},
+      {"screen": "Login", "issues": ["Username placeholder is 'admin' (minor hint of real username)"]},
+      {"screen": "Console", "issues": ["Radix warnings: DialogContent missing DialogTitle/Description (receipt dialog etc.)"]}
+    ]
+  },
+  "test_report_links": ["/app/backend/tests/test_pos_api.py", "/app/backend/tests/test_iteration2_fixes.py", "/app/backend/tests/cleanup_it2.py", "/app/test_reports/pytest/pytest_results_it2.xml"],
+  "action_items": [
+    "CRITICAL: Create a shared error-message helper that handles FastAPI 422 array detail and use it in all 14 toast.error(e.response?.data?.detail ...) call sites; add client-side positive-number validation for estoque movimento qty and fiado payment amount",
+    "Make CheckoutDialog scrollable on mobile (max-h-[90vh] overflow-y-auto) so title and confirm button are fully visible",
+    "ProductDialog: accept initial values (variations_data, pizza_halves, quantity, notes) for edit-options in Encomendas",
+    "Replace irrelevant seed images for Coxinha and Pão de Queijo",
+    "Optional: block cancel of fechada orders (or revert fiado/stock), restrict PATCH order status values, validate encomenda deposit >= 0"
+  ],
+  "critical_code_review_comments": [
+    "server.py is 1260 lines - split into routers (auth, users, products, orders, encomendas, estoque, dashboard)",
+    "toast.error(detail) pattern duplicated 14x and unsafe for 422 - extract helper",
+    "DELETE /orders/{id} has no status guard; PATCH /orders accepts any status string",
+    "PATCH /encomendas takes raw dict; use a Pydantic model",
+    "Iteration_1 closed TEST_ orders (#102-#109) still exist in DB (fechada) and count in revenue history"
+  ],
+  "updated_files": ["/app/backend/tests/test_pos_api.py (negative payment assertion now accepts 422)", "/app/backend/tests/test_iteration2_fixes.py (new)", "/app/backend/tests/cleanup_it2.py (new)"],
+  "success_rate": {"backend": "100% (37/37)", "frontend": "~85% (all listed fixes verified; 1 critical crash on 422 errors, 1 medium mobile checkout dialog issue)"},
+  "seed_data_creation": "None. All TEST_ records created in this run removed: orders #112-#118, #125, #126 cancelled (status cancelada), encomenda TEST_UI_Enc2 deleted, estoque TEST_UI_Badge deleted (its 2 estoque_mov history entries remain), test users/customers/products deleted. Users list = admin, caixa1.",
+  "retest_needed": true,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Run: cd /app/backend && REACT_APP_BACKEND_URL=<frontend/.env> python -m pytest tests/test_pos_api.py tests/test_iteration2_fixes.py. Both create closed orders; cancel them afterwards with python tests/cleanup_it2.py <UTC ISO start time>. To retest the crash: Gerente > Estoque > Entrada on any item with quantity -2 (or Fiado > Receber with empty amount) -> should show a toast, not app error screen. Mobile checkout: login caixa1 at 390x844, open comanda, Fechar venda -> check checkout-dialog fits/scrolls. Selects are shadcn (click trigger then get_by_role('option')). Toaster at [data-sonner-toaster] data-x-position=right data-y-position=bottom.",
+  "rca of the issue": "422 crash: backend now uses Field(gt=0)/ge=0, so invalid input yields FastAPI RequestValidationError with detail=[{type,loc,msg,...}]. Frontend catch blocks pass e.response.data.detail straight into toast.error(), sonner renders it as a React child -> 'Objects are not valid as a React child' -> app-level crash. Repro: Estoque movement qty -2. Mitigation: normalize detail to string in a shared helper (and/or add a RequestValidationError handler in backend that returns a string detail)."
+}

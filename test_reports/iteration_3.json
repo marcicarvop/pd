@@ -1,0 +1,41 @@
+{
+  "summary": "Iteration 3 retest of iteration_2 findings. All requested fixes verified. Backend: new tests/test_iteration3_fixes.py 13/16 pass - PATCH order status fechada/cancelada/garbage -> 400, valid status ok; DELETE fechada order -> 400 (status unchanged), DELETE open ok; invalid pizza flavor -> 400 'Sabor inválido'; encomenda empty name 422, blank '   ' 400, negative deposit 422, deposit>total 400; PATCH encomenda bogus status 400, negative deposit 422, valid status persisted. 3 new minor backend gaps found (see minor). Frontend: no more 422 crash - Estoque Entrada qty -2 and empty qty show toast 'Informe um valor maior que zero', Fiado Receber empty/0 shows same toast, no pageerrors; login placeholder now 'seu usuário'; Encomendas edit-options reopens ProductDialog pre-filled (flavors Calabresa/Quatro Queijos selected, qty 2, notes kept, price R$84, confirm enabled), save + status change to Pronta + delete OK; mobile 390x844 CheckoutDialog fits (y 42..802), title visible, scrolls, confirm reachable, pizza pix sale completed with receipt; desktop regression: Caixa Pastel -> Comandas open card -> goto -> fiado checkout -> appears in Fechadas -> Fiado debt R$8 -> Receber 8 -> R$0; Dashboard renders KPIs/charts/alerts.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "PATCH /api/orders/{id}", "issue": "A 'cancelada' order can be reopened: PATCH {status:'aberta'} returns 200 (guard only checks 'fechada'). Same for POST /orders/{id}/items (200 on cancelled order) and likely /checkout and DELETE items. Fix: guard with order['status'] not in ORDER_EDITABLE_STATUSES -> 400 in update_order, add_item, remove_item, checkout_order."},
+      {"endpoint": "PATCH /api/encomendas/{id}", "issue": "deposit not checked against encomenda total (deposit total+1000 -> 200). POST checks this, PATCH does not."},
+      {"endpoint": "PATCH /api/encomendas/{id}", "issue": "Unknown id returns 200 with null body instead of 404 (DELETE /encomendas/{id} also returns ok for unknown id)."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "Encomendas card", "issue": "updStatus() and remove() have no try/catch - backend errors are silent/unhandled; status Select trigger and delete (trash) button lack data-testid", "selector": "[data-testid^=encomenda-] button[role=combobox]", "priority": "LOW"},
+      {"component": "ProductDialog (edit mode)", "issue": "When reopened via 'Opções' to edit, confirm button still says 'Adicionar' (cosmetic; could be 'Salvar')", "selector": "[data-testid=product-dialog-confirm]", "priority": "LOW"}
+    ],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Caixa mobile checkout", "issues": ["'Item adicionado' toast (bottom) overlaps the lower part of the CheckoutDialog (Cancelar button) for a few seconds"]}
+    ]
+  },
+  "test_report_links": ["/app/backend/tests/test_iteration3_fixes.py", "/app/test_reports/pytest/pytest_results_it3.xml"],
+  "action_items": [
+    "Block edits on cancelled orders: in update_order/add_item/remove_item/checkout_order reject when status in ('fechada','cancelada')",
+    "PATCH /encomendas: validate deposit <= encomenda total and return 404 for unknown id",
+    "Encomendas: wrap updStatus/remove in try/catch with toast.error; add data-testid to status select and delete button",
+    "Note: since closed orders can no longer be cancelled, regression tests that close orders (test_pos_api.py, test_iteration2_fixes.py, cleanup_it2.py) permanently add TEST_ sales to revenue - consider a test-only cleanup path or accept"
+  ],
+  "critical_code_review_comments": [
+    "server.py ~1290 lines - split into routers",
+    "Closed-order status guard is duplicated in 4 endpoints and only checks 'fechada'; centralize in a helper (_get_editable_order) that also rejects 'cancelada'",
+    "create_encomenda builds items before validating customer_name/deposit-nonzero - cheap checks should run first (minor)",
+    "Frontend still uses toast.error(e.response?.data?.detail || 'Erro') pattern; now safe thanks to interceptor normalization"
+  ],
+  "updated_files": ["/app/backend/tests/test_iteration3_fixes.py (new)"],
+  "success_rate": {"backend": "81% (13/16; 3 failures are new minor gaps, all requested fixes pass)", "frontend": "100% of requested retests pass"},
+  "seed_data_creation": "None. Created & removed: TEST_Fiado3 customer (deleted, its fiado_mov history remains), encomendas TEST_E3/TEST_E3b/TEST_UI_Enc3 (deleted), open TEST_it3 orders (cancelled). Remaining (cannot be cancelled by design now): closed sales #131 TEST_it3 (R$0.75 pix), #136 TEST_it3_mob (R$42 pix), #137 TEST_it3_fiado (R$8 fiado, paid back).",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Run: cd /app/backend && REACT_APP_BACKEND_URL=<frontend/.env> python -m pytest tests/test_iteration3_fixes.py (pytest.ini uses xdist). The 3 failing tests (test_cancelled_order_cannot_be_reopened, test_patch_deposit_gt_total, test_patch_unknown_id) encode the new minor gaps. Closing orders in tests now leaves permanent fechada TEST_ sales. Login: admin/admin123, caixa1/caixa123. Selects are shadcn (click trigger then get_by_role('option')).",
+  "rca of the issue": "Cancelled order reopen: update_order/add_item only check order['status']=='fechada'; 'cancelada' passes, and the new ORDER_EDITABLE_STATUSES check validates only the target status, not the current one. Repro: POST /orders, DELETE /orders/{id}, PATCH /orders/{id} {status:'aberta'} -> 200 aberta."
+}

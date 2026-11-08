@@ -1,0 +1,23 @@
+{
+  "summary": "Iteration 4 retest of the iteration_3 minor findings, plus a smoke pass. Every fix checks out. Backend: new tests/test_iteration4_fixes.py with 15 tests, plus the iteration-3 regression file with 16. All 31 pass. On a cancelled order, PATCH with each status (aberta, em_producao, pronta, aguardando_pagamento, fechada, cancelada) and PATCH table_label return 400, and the status stays 'cancelada'. POST items, DELETE item and POST checkout on a cancelled order also return 400, with items and status unchanged. PATCH /encomendas with a deposit above the total returns 400 and the deposit is not saved. A deposit equal to the total is accepted. PATCH and DELETE on an unknown encomenda id return 404, and a second DELETE of the same encomenda returns 404. Frontend smoke test: PIN login (caixa1) worked, then logout, then password login (admin). Caixa: a half-and-half Pizza Grande (R$55) paid with R$100 in cash showed change of R$45,00, and the receipt shows 'Troco'. Fiado: 'Receber' of R$0,75 brought the debt to R$0,00. Encomendas: the status Select [encomenda-status-{id}] changed the status to Pronta. When I forced the PATCH to return 400 (Playwright route), a toast showed the backend message. The delete button [encomenda-delete-{id}] removed the encomenda in the UI and the backend. ProductDialog's confirm button says 'Adicionar' for a new item and 'Salvar' when reopened through 'Opções'. No page errors.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": ["/app/backend/tests/test_iteration4_fixes.py", "/app/backend/tests/test_iteration3_fixes.py", "/app/test_reports/pytest/pytest_results_it4.xml"],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "Encomendas.jsx load() and the initial products fetch have no try/catch or error state (low priority)",
+    "create_encomenda still builds the items before it checks customer_name and deposit (a cheap reorder)",
+    "server.py is about 1296 lines; consider splitting it into routers",
+    "The four order endpoints repeat the same editable-status check; it could become one helper function"
+  ],
+  "updated_files": ["/app/backend/tests/test_iteration4_fixes.py", "/app/backend/tests/setup_it4_ui.py"],
+  "success_rate": {"backend": "100%", "frontend": "100%"},
+  "seed_data_creation": "Test-only records. I deleted the TEST_it4_cliente customer and both TEST_ encomendas (one in fixture teardown, one through the UI). Three orders cannot be deleted because the API blocks deleting closed orders: #160 TEST_it4 (cancelled), #169 TEST_it4_fiado (closed, R$0,75 fiado, paid off) and #170 TEST_it4_caixa (closed, R$55 cash). The two closed ones add R$55,75 to revenue.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Run with: cd /app/backend && REACT_APP_BACKEND_URL=<frontend/.env> python -m pytest tests/test_iteration4_fixes.py tests/test_iteration3_fixes.py (pytest.ini uses xdist). Pizza Grande id is 4196e5d4-...; it has no size variations, only flavors. Fiado debt can only be created through checkout with the order's customer_id set first via PATCH /orders/{id}. The checkout body does not take customer_id."
+}
